@@ -1,22 +1,30 @@
 /**
  * Serial port handler for AD8232 EKG sensor via Web Serial API.
  *
- * Fixes vs. original:
- * - Line parsing scans for newlines WITHIN chunks instead of comparing
- *   the entire chunk to "\n" (which almost never matched).
- * - Handles leads-off detection ('!' from Arduino) with a callback.
+ * Expected Arduino output: one value per line at 9600 baud, e.g.
+ * Serial.println(analogRead(A0)), or "!" when the leads are off.
+ *
+ * Callbacks:
+ * - onData(value): called per sample; value is null for a leads-off line
+ *   so the plot can leave a gap while keeping time.
+ * - onLeadsChange(off): called only when the leads-off state flips.
+ * - onConnect()
+ * - onDisconnect(lost): lost is true when the device went away
+ *   (e.g. USB unplugged) rather than the user clicking Close.
  */
 
 class SerialHandler {
-  constructor({ onData, onLeadsOff, onLeadsOn, onConnect, onDisconnect }) {
+  constructor({ onData, onLeadsChange, onConnect, onDisconnect }) {
     this.port = null;
     this.reader = null;
     this.isReading = false;
     this.lineBuffer = "";
+    this.discardFirstLine = true;
+    this.leadsOff = false;
+    this.lastLineTime = 0;
 
     this.onData = onData;
-    this.onLeadsOff = onLeadsOff;
-    this.onLeadsOn = onLeadsOn;
+    this.onLeadsChange = onLeadsChange;
     this.onConnect = onConnect;
     this.onDisconnect = onDisconnect;
 
@@ -33,30 +41,29 @@ class SerialHandler {
   async open() {
     this.port = await navigator.serial.requestPort();
 
-    try {
-      await this.port.open({
-        baudRate: this.baudRate,
-        dataBits: this.dataBits,
-        parity: this.parity,
-        stopBits: this.stopBits,
-      });
-    } catch (err) {
-      await this.port.close();
-      throw err;
-    }
+    // If open() fails the port was never opened, so there is nothing to
+    // close; let the original error (e.g. port in use) reach the caller.
+    await this.port.open({
+      baudRate: this.baudRate,
+      dataBits: this.dataBits,
+      parity: this.parity,
+      stopBits: this.stopBits,
+    });
 
     this.isReading = true;
+    this.lastLineTime = Date.now();
     if (this.onConnect) this.onConnect();
     this._readLoop();
   }
 
-  async close() {
+  async close(lost = false) {
     this.isReading = false;
 
-    if (this.reader) {
+    const reader = this.reader;
+    if (reader) {
       try {
-        await this.reader.cancel();
-        this.reader.releaseLock();
+        await reader.cancel();
+        reader.releaseLock();
       } catch (err) {
         console.error("Error closing reader:", err);
       } finally {
@@ -74,18 +81,17 @@ class SerialHandler {
       }
     }
 
-    if (this.onDisconnect) this.onDisconnect();
+    if (this.onDisconnect) this.onDisconnect(lost);
+  }
+
+  msSinceLastLine() {
+    return Date.now() - this.lastLineTime;
   }
 
   async _readLoop() {
-    if (!this.port) {
-      console.error("No serial port available");
-      return;
-    }
-
     const decoder = new TextDecoder();
 
-    while (this.port.readable && this.isReading) {
+    while (this.port && this.port.readable && this.isReading) {
       this.reader = this.port.readable.getReader();
 
       try {
@@ -93,39 +99,56 @@ class SerialHandler {
           const { value, done } = await this.reader.read();
           if (done) break;
 
-          // Decode the chunk and append to our line buffer
-          const chunk = decoder.decode(value, { stream: true });
-          this.lineBuffer += chunk;
+          this.lineBuffer += decoder.decode(value, { stream: true });
 
-          // FIX: Scan for complete lines within the buffer.
-          // Arduino sends: " " + value + "\r\n"
-          // Split on newline, process each complete line.
           let newlineIdx;
           while ((newlineIdx = this.lineBuffer.indexOf("\n")) !== -1) {
             const line = this.lineBuffer.substring(0, newlineIdx).trim();
             this.lineBuffer = this.lineBuffer.substring(newlineIdx + 1);
 
-            if (line.length === 0) continue;
-
-            // FIX: Handle leads-off detection.
-            // Arduino sends '!' when electrodes are disconnected.
-            if (line === "!") {
-              if (this.onLeadsOff) this.onLeadsOff();
+            // The port may open mid-line, so the first line can be a
+            // fragment (e.g. "23" from "523").
+            if (this.discardFirstLine) {
+              this.discardFirstLine = false;
               continue;
             }
 
-            const value = parseFloat(line);
-            if (!isNaN(value)) {
-              if (this.onLeadsOn) this.onLeadsOn();
-              if (this.onData) this.onData(value);
-            }
+            this._handleLine(line);
           }
         }
       } catch (err) {
         console.error("Serial read error:", err);
       } finally {
-        this.reader.releaseLock();
+        if (this.reader) this.reader.releaseLock();
+        this.reader = null;
       }
     }
+
+    // Loop ended without the user clicking Close: the device was lost.
+    if (this.isReading) await this.close(true);
+  }
+
+  _handleLine(line) {
+    if (line.length === 0) return;
+
+    if (line === "!") {
+      this.lastLineTime = Date.now();
+      this._setLeadsOff(true);
+      if (this.onData) this.onData(null);
+      return;
+    }
+
+    const value = parseFloat(line);
+    if (isNaN(value)) return;
+
+    this.lastLineTime = Date.now();
+    this._setLeadsOff(false);
+    if (this.onData) this.onData(value);
+  }
+
+  _setLeadsOff(off) {
+    if (off === this.leadsOff) return;
+    this.leadsOff = off;
+    if (this.onLeadsChange) this.onLeadsChange(off);
   }
 }

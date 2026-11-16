@@ -5,8 +5,8 @@
   <title>EKG Monitor - Dream Team Engineering</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" sizes="192x192" href="../assets/favicon.ico">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../vendor/bootstrap.min.css" rel="stylesheet">
+  <link href="../vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/styles.css">
 </head>
 <body class="ekg-body">
@@ -68,7 +68,7 @@
     </div>
   </div>
 
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="../vendor/plotly-2.35.2.min.js"></script>
   <script src="../js/serial.js"></script>
   <script src="../js/ekg-plot.js"></script>
   <script>
@@ -77,6 +77,10 @@
     let plot = null;
     let demoTimer = null;
     let demoRunning = false;
+    let watchdogTimer = null;
+    let noData = false;
+
+    const NO_DATA_MS = 3000;
 
     const btnOpen = document.getElementById("btnOpen");
     const btnClose = document.getElementById("btnClose");
@@ -98,10 +102,45 @@
       statusBanner.textContent = "";
     }
 
+    function showConnected() {
+      showStatus("Connected — reading data", "connected");
+    }
+
     function setConnectedUI(connected) {
       btnOpen.disabled = connected;
       btnClose.disabled = !connected;
       btnDemo.disabled = connected;
+    }
+
+    // Warn when the port is open but no parseable lines arrive, which
+    // usually means a baud-rate mismatch or the wrong sketch.
+    function startWatchdog() {
+      noData = false;
+      watchdogTimer = setInterval(() => {
+        if (!serial) return;
+        if (serial.msSinceLastLine() > NO_DATA_MS) {
+          if (!noData) {
+            noData = true;
+            showStatus("No data from the Arduino — check that the sketch uses " +
+              "Serial.begin(9600) and prints one value per line", "warning");
+          }
+        } else if (noData) {
+          noData = false;
+          if (serial.leadsOff) showLeadsOff();
+          else showConnected();
+        }
+      }, 500);
+    }
+
+    function stopWatchdog() {
+      if (watchdogTimer) {
+        clearInterval(watchdogTimer);
+        watchdogTimer = null;
+      }
+    }
+
+    function showLeadsOff() {
+      showStatus("Leads disconnected — check electrode placement", "warning");
     }
 
     // --- Serial connection ---
@@ -112,35 +151,49 @@
       }
 
       stopDemo();
+      plot.reset();
 
       serial = new SerialHandler({
         onData: (value) => plot.addSample(value),
-        onLeadsOff: () => showStatus("Leads disconnected — check electrode placement", "warning"),
-        onLeadsOn: () => hideStatus(),
+        onLeadsChange: (off) => {
+          if (noData) return;
+          if (off) showLeadsOff();
+          else showConnected();
+        },
         onConnect: () => {
           setConnectedUI(true);
-          showStatus("Connected — reading data", "connected");
+          showConnected();
+          startWatchdog();
         },
-        onDisconnect: () => {
+        onDisconnect: (lost) => {
+          stopWatchdog();
           setConnectedUI(false);
-          hideStatus();
+          serial = null;
+          if (lost) {
+            showStatus("Device disconnected — check the USB cable, then click Open", "warning");
+          } else {
+            hideStatus();
+          }
         },
       });
 
       try {
         await serial.open();
       } catch (err) {
-        console.error("Failed to open serial port:", err);
-        alert("Failed to open serial port: " + err.message);
+        serial = null;
         setConnectedUI(false);
+        // User closed the port chooser without picking a port.
+        if (err.name === "NotFoundError") return;
+        console.error("Failed to open serial port:", err);
+        showStatus("Could not open the serial port. Close the Arduino IDE Serial " +
+          "Monitor or any other program using it, then try again. (" + err.message + ")",
+          "warning");
       }
     });
 
     btnClose.addEventListener("click", async () => {
-      if (serial) {
-        await serial.close();
-        serial = null;
-      }
+      if (demoRunning) stopDemo();
+      if (serial) await serial.close();
       plot.reset();
     });
 
@@ -194,6 +247,6 @@
     });
   </script>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendor/bootstrap.bundle.min.js"></script>
 </body>
 </html>
