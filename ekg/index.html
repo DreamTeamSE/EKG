@@ -229,7 +229,8 @@
       showStatus("Demo mode — showing simulated EKG data", "connected");
 
       demoTimer = setInterval(() => {
-        plot.addSample(ekgSample(demoSampleIndex * 0.025));
+        // Scale to look like a 10-bit ADC reading (0–1023), as from the board.
+        plot.addSample(512 + 8 * ekgSample(demoSampleIndex * 0.025));
         demoSampleIndex++;
       }, 1);
     }

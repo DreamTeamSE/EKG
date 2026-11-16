@@ -8,16 +8,19 @@
  *   not arrival time. Serial data arrives in bursts of several lines,
  *   so arrival timestamps would bunch samples into vertical clusters.
  * - The y-range follows the data but shrinks slowly, so the trace does
- *   not jump each time a spike scrolls out of the window.
+ *   not jump each time a spike scrolls out of the window. It never gets
+ *   shorter than minSpan, so ADC noise on a dead input draws as a flat
+ *   line instead of being magnified into something that looks like signal.
  * - The window is a fixed duration, not a fixed sample count, so the
  *   view covers the same few heartbeats at any baud or sample rate.
  */
 
 class EkgPlot {
-  constructor(elementId, windowMs = 4000, maxSamples = 5000) {
+  constructor(elementId, windowMs = 4000, maxSamples = 5000, minSpan = 200) {
     this.elementId = elementId;
     this.windowMs = windowMs;
     this.maxSamples = maxSamples;
+    this.minSpan = minSpan;
     this.intervalId = null;
     this._clear();
 
@@ -85,6 +88,11 @@ class EkgPlot {
 
     const pad = Math.max((max - min) * 0.1, 1);
     const target = [min - pad, max + pad];
+    if (target[1] - target[0] < this.minSpan) {
+      const mid = (min + max) / 2;
+      target[0] = mid - this.minSpan / 2;
+      target[1] = mid + this.minSpan / 2;
+    }
 
     if (!this.yRange) {
       this.yRange = target;

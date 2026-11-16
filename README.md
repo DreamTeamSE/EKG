@@ -163,7 +163,8 @@ four or five heartbeats. About 16 times a second, it redraws the chart with
   shape correct.
 - **Vertical axis.** The axis grows as soon as the signal needs more room,
   then shrinks slowly. This stops the chart from jumping when a large spike
-  scrolls off.
+  scrolls off. It's never shorter than 200 units, so a dead or disconnected
+  sensor shows as a flat line instead of magnified noise.
 - **Zoom.** Zoom is turned off, so a stray click or drag can't freeze the
   view.
 
