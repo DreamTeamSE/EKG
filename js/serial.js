@@ -1,8 +1,8 @@
 /**
  * Serial port handler for AD8232 EKG sensor via Web Serial API.
  *
- * Expected Arduino output: one value per line at 9600 baud, e.g.
- * Serial.println(analogRead(A0)), or "!" when the leads are off.
+ * Expected board output: one value per line at the selected baud rate,
+ * e.g. Serial.println(analogRead(34)), or "!" when the leads are off.
  *
  * Callbacks:
  * - onData(value): called per sample; value is null for a leads-off line
@@ -14,7 +14,7 @@
  */
 
 class SerialHandler {
-  constructor({ onData, onLeadsChange, onConnect, onDisconnect }) {
+  constructor({ baudRate = 115200, onData, onLeadsChange, onConnect, onDisconnect }) {
     this.port = null;
     this.reader = null;
     this.isReading = false;
@@ -28,7 +28,7 @@ class SerialHandler {
     this.onConnect = onConnect;
     this.onDisconnect = onDisconnect;
 
-    this.baudRate = 9600;
+    this.baudRate = baudRate;
     this.dataBits = 8;
     this.parity = "none";
     this.stopBits = 1;
@@ -49,6 +49,15 @@ class SerialHandler {
       parity: this.parity,
       stopBits: this.stopBits,
     });
+
+    // ESP32 dev boards wire DTR/RTS to their reset and boot pins.
+    // Release both so the board runs its sketch instead of being held
+    // in reset or bootloader mode.
+    try {
+      await this.port.setSignals({ dataTerminalReady: false, requestToSend: false });
+    } catch (err) {
+      console.warn("Could not set serial control signals:", err);
+    }
 
     this.isReading = true;
     this.lastLineTime = Date.now();
@@ -138,8 +147,9 @@ class SerialHandler {
       return;
     }
 
-    const value = parseFloat(line);
-    if (isNaN(value)) return;
+    // Strict match: parseFloat would accept boot-log text like "12abc".
+    if (!/^-?\d+(\.\d+)?$/.test(line)) return;
+    const value = Number(line);
 
     this.lastLineTime = Date.now();
     this._setLeadsOff(false);

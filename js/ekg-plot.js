@@ -9,12 +9,15 @@
  *   so arrival timestamps would bunch samples into vertical clusters.
  * - The y-range follows the data but shrinks slowly, so the trace does
  *   not jump each time a spike scrolls out of the window.
+ * - The window is a fixed duration, not a fixed sample count, so the
+ *   view covers the same few heartbeats at any baud or sample rate.
  */
 
 class EkgPlot {
-  constructor(elementId, windowLength = 500) {
+  constructor(elementId, windowMs = 4000, maxSamples = 5000) {
     this.elementId = elementId;
-    this.windowLength = windowLength;
+    this.windowMs = windowMs;
+    this.maxSamples = maxSamples;
     this.intervalId = null;
     this._clear();
 
@@ -54,8 +57,12 @@ class EkgPlot {
     this.indices.push(this.sampleCount++);
     this.yData.push(value);
 
-    // Rolling window: drop oldest samples beyond the window length
-    while (this.indices.length > this.windowLength) {
+    // Rolling window: drop samples older than windowMs
+    const period = this._periodMs();
+    const limit = period > 0
+      ? Math.min(this.maxSamples, Math.ceil(this.windowMs / period))
+      : this.maxSamples;
+    while (this.indices.length > limit) {
       this.indices.shift();
       this.yData.shift();
     }

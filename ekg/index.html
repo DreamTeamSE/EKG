@@ -38,6 +38,10 @@
     <button type="button" class="btn btn-primary" id="btnOpen">
       <i class="bi bi-usb-symbol"></i> Open
     </button>
+    <select class="form-select d-inline-block w-auto me-2" id="baudSelect" aria-label="Baud rate">
+      <option value="115200" selected>115200 baud</option>
+      <option value="9600">9600 baud</option>
+    </select>
     <button type="button" class="btn btn-danger" id="btnClose" disabled>
       <i class="bi bi-x-octagon-fill"></i> Close
     </button>
@@ -85,6 +89,7 @@
     const btnOpen = document.getElementById("btnOpen");
     const btnClose = document.getElementById("btnClose");
     const btnDemo = document.getElementById("btnDemo");
+    const baudSelect = document.getElementById("baudSelect");
     const statusBanner = document.getElementById("statusBanner");
 
     // --- Initialize plot ---
@@ -110,6 +115,7 @@
       btnOpen.disabled = connected;
       btnClose.disabled = !connected;
       btnDemo.disabled = connected;
+      baudSelect.disabled = connected;
     }
 
     // Warn when the port is open but no parseable lines arrive, which
@@ -121,8 +127,9 @@
         if (serial.msSinceLastLine() > NO_DATA_MS) {
           if (!noData) {
             noData = true;
-            showStatus("No data from the Arduino — check that the sketch uses " +
-              "Serial.begin(9600) and prints one value per line", "warning");
+            showStatus("No data from the board — check that the baud rate matches " +
+              "Serial.begin(...) in the sketch and that it prints one value per line",
+              "warning");
           }
         } else if (noData) {
           noData = false;
@@ -154,6 +161,7 @@
       plot.reset();
 
       serial = new SerialHandler({
+        baudRate: Number(baudSelect.value),
         onData: (value) => plot.addSample(value),
         onLeadsChange: (off) => {
           if (noData) return;
@@ -221,7 +229,7 @@
       showStatus("Demo mode — showing simulated EKG data", "connected");
 
       demoTimer = setInterval(() => {
-        plot.addSample(ekgSample(demoSampleIndex * 0.05));
+        plot.addSample(ekgSample(demoSampleIndex * 0.025));
         demoSampleIndex++;
       }, 1);
     }
