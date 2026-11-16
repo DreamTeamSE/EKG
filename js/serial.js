@@ -2,7 +2,8 @@
  * Serial port handler for AD8232 EKG sensor via Web Serial API.
  *
  * Expected board output: one value per line at the selected baud rate,
- * e.g. Serial.println(analogRead(34)), or "!" when the leads are off.
+ * e.g. Serial.println(analogRead(A0)), or "!" when the leads are off.
+ * See firmware/ekg_nodemcu/ekg_nodemcu.ino.
  *
  * Callbacks:
  * - onData(value): called per sample; value is null for a leads-off line
@@ -50,7 +51,8 @@ class SerialHandler {
       stopBits: this.stopBits,
     });
 
-    // ESP32 dev boards wire DTR/RTS to their reset and boot pins.
+    // ESP8266/ESP32 dev boards (e.g. NodeMCU) wire DTR/RTS to their
+    // reset and boot pins.
     // Release both so the board runs its sketch instead of being held
     // in reset or bootloader mode.
     try {
