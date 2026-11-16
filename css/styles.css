@@ -1,0 +1,109 @@
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #fff;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Navbar */
+.logo {
+  width: 220px;
+  cursor: pointer;
+}
+
+.navbar a {
+  color: #000;
+  text-decoration: none;
+}
+
+/* Landing page */
+.hero-text {
+  padding: 50px;
+  text-align: center;
+}
+
+.custom-card {
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.custom-card:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.custom-card .card-body {
+  background-color: #f8f9fa;
+}
+
+.custom-card .card-title {
+  color: #333;
+}
+
+.custom-card .card-text {
+  color: #666;
+}
+
+.custom-card .btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.custom-card .btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+/* EKG page */
+.ekg-body {
+  background-color: #f4f4f4;
+}
+
+#plot {
+  margin-top: 50px;
+  background: #fff;
+  border-radius: 8px;
+}
+
+.electrode-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.electrode-list li {
+  margin-bottom: 10px;
+}
+
+/* Serial controls */
+.serial-controls {
+  padding: 12px 0;
+}
+
+.serial-controls .btn {
+  margin-right: 8px;
+}
+
+/* Status banner for leads-off */
+.status-banner {
+  display: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.status-banner.warning {
+  display: block;
+  background-color: #fff3cd;
+  border: 1px solid #ffe69c;
+  color: #664d03;
+}
+
+.status-banner.connected {
+  display: block;
+  background-color: #d1e7dd;
+  border: 1px solid #a3cfbb;
+  color: #0a3622;
+}
