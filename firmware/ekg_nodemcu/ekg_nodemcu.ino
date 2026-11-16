@@ -11,7 +11,9 @@
 //   AD8232 LO-    -> D1
 //   AD8232 3.3v   -> 3V3
 //   AD8232 GND    -> GND
-//   AD8232 SDN    -> not connected
+//   AD8232 SDN    -> 3V3 (required: if SDN is left unconnected the
+//                    sensor stays shut down and A0 reads ~0. The first
+//                    PCB revision needs a jumper wire for this.)
 
 #include <ESP8266WiFi.h>
 

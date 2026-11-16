@@ -38,11 +38,17 @@ The PCB already connects the parts like this:
 | OUTPUT | A0 |
 | LO- | D1 |
 | LO+ | D2 |
-| SDN | not connected |
+| SDN | 3V3 (**jumper wire needed**, see below) |
 
-SDN is the sensor's shutdown pin. It's unused, so the sensor stays on. If the
-trace is a flat line with the electrodes attached, check that nothing is
-pulling SDN low.
+> **Connect SDN to 3.3V.** SDN is the sensor's shutdown pin. If it's left
+> unconnected, the AD8232 stays switched off. A0 then reads about 0, and
+> the electrodes have no effect. The first PCB revision doesn't connect SDN,
+> so solder a jumper wire from the AD8232's SDN pin to its 3.3v pin. The next
+> revision should route SDN to 3V3.
+
+Once SDN is connected, the red LED on the AD8232 board flashes with each
+heartbeat when the electrodes are on. That's a quick check that the sensor
+works, independent of the code and the website.
 
 ### 2. Upload the sketch
 
@@ -90,7 +96,7 @@ Sit still while recording. Movement and talking add noise to the signal.
 | Banner | Meaning | What to do |
 | --- | --- | --- |
 | 🟢 Connected — reading data | Everything is working. | Nothing. |
-| 🟡 Leads disconnected | An electrode is loose or off. | Check the pads and the cable. |
+| 🟡 Leads disconnected | An electrode is loose or off. | Use sticky gel pads on all three leads (bare snaps held in fingers usually trip this), and push the cable fully into the sensor's jack. |
 | 🟡 No data from the board | The port is open, but the data is unreadable. | Match the baud dropdown to the sketch, and make sure the sketch is uploaded. |
 | 🟡 Device disconnected | The USB cable was unplugged. | Plug it back in and click **Open**. |
 | 🟡 Could not open the serial port | Another program is using the port. | Close the Arduino IDE Serial Monitor, then click **Open** again. |
